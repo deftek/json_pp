@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * json_pp - JSON Pretty Printer
+ *
+ * @copyright Deftek. Please see LICENSE.txt for complete copyright and license information.
+ */
+
+namespace Deftek\json_pp;
+
+/**#@+
+ * Error codes
+ */
+const ERROR_OPTIONS = 1;
+const ERROR_READ    = 2;
+const ERROR_DECODE  = 3;
+const ERROR_ENCODE  = 4;
+/**#@-*/
+
+/**
+ * Print an error message and usage summary to STDERR and exit with the provided error code
+ *
+ * @param int $errorCode
+ * @param string $message
+ */
+$exitWithErrorCode = function ($errorCode, $message = null) use (&$stderr) {
+
+    $errorMessages = [
+        ERROR_OPTIONS => 'Invalid options provided',
+        ERROR_READ    => 'Failed reading input JSON',
+        ERROR_DECODE  => 'Failed decoding input JSON',
+        ERROR_ENCODE  => 'Failed encoding input JSON',
+    ];
+
+    fputs(
+        $stderr,
+        "{$errorMessages[$errorCode]}" . (isset($message) ? ": {$message}" : '') . "\n" .
+            'Usage: json_pp [--config=/path/to/config.php]' . "\n"
+    );
+
+    exit($errorCode);
+};
+
+// Open STDERR for appending error messages
+$stderr = fopen('php://stderr', 'a');
+
+// Get options from command line
+$options = getopt('', ['config::']);
+if (false === $options) {
+    $exitWithErrorCode(ERROR_OPTIONS);
+}
+
+// Add defaults for missing options
+$options += [
+    'config' => realpath(__DIR__ . '/../config.default.php'),
+];
+
+// Read config file
+set_include_path(getcwd() . PATH_SEPARATOR . realpath(__DIR__ . '/..'));
+$config = require $options['config'];
+
+// Read input from STDIN
+$input = file_get_contents('php://stdin');
+if (false === $input) {
+    $exitWithErrorCode(ERROR_READ);
+}
+
+// Decode input data
+$inputDecoded = json_decode($input, true, $config['depth'], $config['decode']);
+if (null === $inputDecoded) {
+    $exitWithErrorCode(ERROR_DECODE);
+}
+
+// Output re-encoded input data
+$output = json_encode($inputDecoded, $config['encode'], $config['depth']);
+if (false === $output) {
+    $exitWithErrorCode(ERROR_ENCODE);
+}
+echo $output;

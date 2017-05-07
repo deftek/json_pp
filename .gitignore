@@ -1,0 +1,3 @@
+/config.*.php
+!/config.default.php
+/vendor/
